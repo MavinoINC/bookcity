@@ -9351,6 +9351,49 @@ function updateUIWithReadingLists(lists) {
     // Update reading lists in the UI
     // Implementation depends on your UI structure
 }
+document.addEventListener('DOMContentLoaded', () => {
+    // Listen for data sync events
+    window.addEventListener('dataSync', (event) => {
+      const { type, data } = event.detail;
+      switch(type) {
+        case 'bookmarks':
+          updateBookmarksUI(data);
+          break;
+        case 'ratings':
+          updateRatingsUI(data);
+          break;
+        case 'readingList':
+          updateReadingListUI(data);
+          break;
+      }
+    });
+  });
+
+  function updateBookmarksUI(bookmarks) {
+    // Update bookmark icons and states
+    document.querySelectorAll('[data-bookmark-id]').forEach(elem => {
+      const bookId = elem.dataset.bookmarkId;
+      elem.classList.toggle('active', bookmarks[bookId]);
+    });
+  }
+
+  function updateRatingsUI(ratings) {
+    // Update rating displays
+    document.querySelectorAll('[data-book-rating]').forEach(elem => {
+      const bookId = elem.dataset.bookRating;
+      if (ratings[bookId]) {
+        elem.innerHTML = '★'.repeat(ratings[bookId]) + '☆'.repeat(5 - ratings[bookId]);
+      }
+    });
+  }
+
+  function updateReadingListUI(readingList) {
+    // Update reading list indicators
+    document.querySelectorAll('[data-reading-list]').forEach(elem => {
+      const bookId = elem.dataset.readingList;
+      elem.classList.toggle('in-list', readingList[bookId]);
+    });
+  }
     </script>
 </body>
 </html>
