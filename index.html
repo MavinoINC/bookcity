@@ -3347,6 +3347,37 @@
         }
     </style>
 </head>
+<script type="module">
+// Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getAuth } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+  import { getFirestore } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+  import { getDatabase } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyALlF0_9E5dvsg0sz7PYtu1TnNKKv879pw",
+    authDomain: "bookcity-26fdc.firebaseapp.com",
+    projectId: "bookcity-26fdc",
+    storageBucket: "bookcity-26fdc.firebasestorage.app",
+    messagingSenderId: "263159980302",
+    appId: "1:263159980302:web:632f6ad36279029e46775f",
+    measurementId: "G-B9BF9P3YG7"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+  const rtdb = getDatabase(app);
+</script>
 <body>
     <!-- Header -->
     <header id="header">
@@ -9169,6 +9200,157 @@
                 }, 16);
             });
         }
+		import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'firebase/firestore';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import config from './config.js';
+
+class DataService {
+    constructor() {
+        // Initialize Firebase
+        const app = initializeApp(config.firebaseConfig);
+        this.db = getFirestore(app);
+        this.auth = getAuth(app);
+        
+        // Track authentication state
+        this.currentUser = null;
+        onAuthStateChanged(this.auth, (user) => {
+            this.currentUser = user;
+            if (user) {
+                this.initializeUserData();
+            }
+        });
+    }
+
+    // Initialize user's data and set up real-time sync
+    async initializeUserData() {
+        if (!this.currentUser) return;
+
+        // Set up real-time sync for user preferences
+        this.syncUserPreferences();
+        
+        // Set up real-time sync for book ratings
+        this.syncBookRatings();
+        
+        // Set up real-time sync for reading lists
+        this.syncReadingLists();
+    }
+
+    // Sync user preferences across devices
+    syncUserPreferences() {
+        const userPrefsRef = doc(this.db, 'users', this.currentUser.uid, 'preferences');
+        
+        // Listen for changes
+        onSnapshot(userPrefsRef, (doc) => {
+            if (doc.exists()) {
+                this.updateLocalPreferences(doc.data());
+            }
+        });
+    }
+
+    // Sync book ratings across devices
+    syncBookRatings() {
+        const ratingsRef = doc(this.db, 'users', this.currentUser.uid, 'ratings');
+        
+        onSnapshot(ratingsRef, (doc) => {
+            if (doc.exists()) {
+                this.updateLocalRatings(doc.data());
+            }
+        });
+    }
+
+    // Sync reading lists across devices
+    syncReadingLists() {
+        const listsRef = doc(this.db, 'users', this.currentUser.uid, 'readingLists');
+        
+        onSnapshot(listsRef, (doc) => {
+            if (doc.exists()) {
+                this.updateLocalReadingLists(doc.data());
+            }
+        });
+    }
+
+    // Save data and sync to cloud
+    async saveData(collection, data) {
+        if (!this.currentUser) return;
+
+        try {
+            const docRef = doc(this.db, 'users', this.currentUser.uid, collection);
+            await setDoc(docRef, data, { merge: true });
+            return true;
+        } catch (error) {
+            console.error('Error saving data:', error);
+            return false;
+        }
+    }
+
+    // Update local preferences
+    updateLocalPreferences(preferences) {
+        localStorage.setItem('userPreferences', JSON.stringify(preferences));
+        // Trigger UI updates
+        window.dispatchEvent(new CustomEvent('preferencesUpdated', { detail: preferences }));
+    }
+
+    // Update local ratings
+    updateLocalRatings(ratings) {
+        localStorage.setItem('bookRatings', JSON.stringify(ratings));
+        // Trigger UI updates
+        window.dispatchEvent(new CustomEvent('ratingsUpdated', { detail: ratings }));
+    }
+
+    // Update local reading lists
+    updateLocalReadingLists(lists) {
+        localStorage.setItem('readingLists', JSON.stringify(lists));
+        // Trigger UI updates
+        window.dispatchEvent(new CustomEvent('readingListsUpdated', { detail: lists }));
+    }
+}
+
+// Create and export a singleton instance
+export const dataService = new DataService();
+import { dataService } from './dataService.js';
+
+// Initialize the data service when the application starts
+document.addEventListener('DOMContentLoaded', () => {
+    // Listen for preference updates
+    window.addEventListener('preferencesUpdated', (event) => {
+        updateUIWithPreferences(event.detail);
+    });
+
+    // Listen for ratings updates
+    window.addEventListener('ratingsUpdated', (event) => {
+        updateUIWithRatings(event.detail);
+    });
+
+    // Listen for reading list updates
+    window.addEventListener('readingListsUpdated', (event) => {
+        updateUIWithReadingLists(event.detail);
+    });
+});
+
+// UI update functions
+function updateUIWithPreferences(preferences) {
+    // Update theme
+    if (preferences.theme) {
+        document.body.setAttribute('data-theme', preferences.theme);
+    }
+    // Update other UI elements based on preferences
+}
+
+function updateUIWithRatings(ratings) {
+    // Update book ratings in the UI
+    Object.entries(ratings).forEach(([bookId, rating]) => {
+        const ratingElements = document.querySelectorAll(`[data-book-id="${bookId}"] .rating-stars`);
+        ratingElements.forEach(elem => {
+            elem.innerHTML = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        });
+    });
+}
+
+function updateUIWithReadingLists(lists) {
+    // Update reading lists in the UI
+    // Implementation depends on your UI structure
+}
     </script>
 </body>
 </html>
